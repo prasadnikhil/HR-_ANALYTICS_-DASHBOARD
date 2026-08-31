@@ -89,4 +89,5 @@ This project shows that attrition in this workforce is not random — it's conce
 
 ---
 
-*Built as a portfolio project to demonstrate end-to-end analytics skills: data modeling, SQL, DAX, and dashboard design.*
+
+
