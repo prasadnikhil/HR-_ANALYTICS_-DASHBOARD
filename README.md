@@ -33,42 +33,46 @@ This project takes a raw HR dataset and turns it into a decision-ready analytics
 
 ---
 
+## Business Problems and Solutions
 
-Business Problems and Solutions
-Basic Queries
+### Basic Queries
 
-1. What is the overall employee attrition rate?
+**1. What is the overall employee attrition rate?**
 
-sql
+```sql
 SELECT
     SUM(attrition = 'Yes') AS employees_left,
     COUNT(*) AS total_employees,
     ROUND(100 * SUM(attrition = 'Yes') / COUNT(*), 2) AS attrition_rate_pct
 FROM employees;
+```
 
-2. Does working overtime increase the likelihood of attrition?
+**2. Does working overtime increase the likelihood of attrition?**
 
-sql
+```sql
 SELECT over_time, COUNT(*) AS total_employees,
        SUM(attrition = 'Yes') AS employees_left,
        ROUND(100 * SUM(attrition = 'Yes') / COUNT(*), 2) AS attrition_rate_pct
 FROM employees
 GROUP BY over_time;
-Intermediate Queries (Joins)
+```
 
-3. How many employees work in each department and job role?
+### Intermediate Queries (Joins)
 
-sql
+**3. How many employees work in each department and job role?**
+
+```sql
 SELECT d.department_name, jr.job_role_name, COUNT(*) AS headcount
 FROM employees e
 JOIN departments d ON d.department_id = e.department_id
 JOIN job_roles jr ON jr.job_role_id = e.job_role_id
 GROUP BY d.department_name, jr.job_role_name
 ORDER BY d.department_name, headcount DESC;
+```
 
-4. How does average pay compare across departments and job roles?
+**4. How does average pay compare across departments and job roles?**
 
-sql
+```sql
 SELECT d.department_name, jr.job_role_name, COUNT(*) AS total_employees,
        ROUND(AVG(c.monthly_income), 0) AS avg_monthly_income
 FROM employees e
@@ -77,21 +81,24 @@ JOIN job_roles jr ON jr.job_role_id = e.job_role_id
 JOIN compensation c ON c.employee_id = e.employee_id
 GROUP BY d.department_name, jr.job_role_name
 ORDER BY avg_monthly_income DESC;
+```
 
-5. Is there a gender pay gap at any job level?
+**5. Is there a gender pay gap at any job level?**
 
-sql
+```sql
 SELECT e.job_level, e.gender, COUNT(*) AS total_employees,
        ROUND(AVG(c.monthly_income), 0) AS avg_monthly_income
 FROM employees e
 JOIN compensation c ON c.employee_id = e.employee_id
 GROUP BY e.job_level, e.gender
 ORDER BY e.job_level, e.gender;
-Advanced Queries (Joins, Window Functions & Subqueries)
+```
 
-6. Which department has the highest attrition rate, ranked against the others?
+### Advanced Queries (Joins, Window Functions & Subqueries)
 
-sql
+**6. Which department has the highest attrition rate, ranked against the others?**
+
+```sql
 SELECT d.department_name, COUNT(*) AS headcount,
        SUM(e.attrition = 'Yes') AS left_count,
        ROUND(100 * SUM(e.attrition = 'Yes') / COUNT(*), 2) AS attrition_rate_pct,
@@ -99,20 +106,22 @@ SELECT d.department_name, COUNT(*) AS headcount,
 FROM employees e
 JOIN departments d ON d.department_id = e.department_id
 GROUP BY d.department_name;
+```
 
-7. Where does each employee sit in their job role's pay range?
+**7. Where does each employee sit in their job role's pay range?**
 
-sql
+```sql
 SELECT e.employee_id, jr.job_role_name, c.monthly_income,
        ROUND(PERCENT_RANK() OVER (PARTITION BY jr.job_role_name ORDER BY c.monthly_income) * 100, 1) AS pay_percentile
 FROM employees e
 JOIN job_roles jr ON jr.job_role_id = e.job_role_id
 JOIN compensation c ON c.employee_id = e.employee_id
 ORDER BY jr.job_role_name, c.monthly_income;
+```
 
-8. How does income trend as tenure increases within the same job role?
+**8. How does income trend as tenure increases within the same job role?**
 
-sql
+```sql
 SELECT jr.job_role_name, e.employee_id, e.years_at_company, c.monthly_income,
        LAG(c.monthly_income) OVER (PARTITION BY jr.job_role_name ORDER BY e.years_at_company) AS income_of_next_junior_peer,
        c.monthly_income - LAG(c.monthly_income) OVER (PARTITION BY jr.job_role_name ORDER BY e.years_at_company) AS income_delta
@@ -120,10 +129,11 @@ FROM employees e
 JOIN compensation c ON c.employee_id = e.employee_id
 JOIN job_roles jr ON jr.job_role_id = e.job_role_id
 ORDER BY jr.job_role_name, e.years_at_company;
+```
 
-9. Which departments have an above-average attrition rate?
+**9. Which departments have an above-average attrition rate?**
 
-sql
+```sql
 SELECT department_name, attrition_rate
 FROM (
     SELECT d.department_name,
@@ -135,10 +145,11 @@ FROM (
 WHERE attrition_rate > (
     SELECT ROUND(100 * SUM(attrition='Yes') / COUNT(*), 2) FROM employees
 );
+```
 
-10. Which employees earn more than the average pay for their department?
+**10. Which employees earn more than the average pay for their department?**
 
-sql
+```sql
 SELECT e.employee_id, d.department_name, c.monthly_income
 FROM employees e
 JOIN departments d ON d.department_id = e.department_id
@@ -149,9 +160,9 @@ WHERE c.monthly_income > (
     JOIN compensation c2 ON c2.employee_id = e2.employee_id
     WHERE e2.department_id = e.department_id
 );
+```
 
 ---
-
 
 ## Tools & Technologies
 
@@ -208,6 +219,3 @@ This project shows that attrition in this workforce is not random — it's conce
 3. Revisit the performance rating scale, since ratings 1–2 are never used in practice.
 
 ---
-
-
-
