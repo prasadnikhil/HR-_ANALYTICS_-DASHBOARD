@@ -33,6 +33,126 @@ This project takes a raw HR dataset and turns it into a decision-ready analytics
 
 ---
 
+
+Business Problems and Solutions
+Basic Queries
+
+1. What is the overall employee attrition rate?
+
+sql
+SELECT
+    SUM(attrition = 'Yes') AS employees_left,
+    COUNT(*) AS total_employees,
+    ROUND(100 * SUM(attrition = 'Yes') / COUNT(*), 2) AS attrition_rate_pct
+FROM employees;
+
+2. Does working overtime increase the likelihood of attrition?
+
+sql
+SELECT over_time, COUNT(*) AS total_employees,
+       SUM(attrition = 'Yes') AS employees_left,
+       ROUND(100 * SUM(attrition = 'Yes') / COUNT(*), 2) AS attrition_rate_pct
+FROM employees
+GROUP BY over_time;
+Intermediate Queries (Joins)
+
+3. How many employees work in each department and job role?
+
+sql
+SELECT d.department_name, jr.job_role_name, COUNT(*) AS headcount
+FROM employees e
+JOIN departments d ON d.department_id = e.department_id
+JOIN job_roles jr ON jr.job_role_id = e.job_role_id
+GROUP BY d.department_name, jr.job_role_name
+ORDER BY d.department_name, headcount DESC;
+
+4. How does average pay compare across departments and job roles?
+
+sql
+SELECT d.department_name, jr.job_role_name, COUNT(*) AS total_employees,
+       ROUND(AVG(c.monthly_income), 0) AS avg_monthly_income
+FROM employees e
+JOIN departments d ON d.department_id = e.department_id
+JOIN job_roles jr ON jr.job_role_id = e.job_role_id
+JOIN compensation c ON c.employee_id = e.employee_id
+GROUP BY d.department_name, jr.job_role_name
+ORDER BY avg_monthly_income DESC;
+
+5. Is there a gender pay gap at any job level?
+
+sql
+SELECT e.job_level, e.gender, COUNT(*) AS total_employees,
+       ROUND(AVG(c.monthly_income), 0) AS avg_monthly_income
+FROM employees e
+JOIN compensation c ON c.employee_id = e.employee_id
+GROUP BY e.job_level, e.gender
+ORDER BY e.job_level, e.gender;
+Advanced Queries (Joins, Window Functions & Subqueries)
+
+6. Which department has the highest attrition rate, ranked against the others?
+
+sql
+SELECT d.department_name, COUNT(*) AS headcount,
+       SUM(e.attrition = 'Yes') AS left_count,
+       ROUND(100 * SUM(e.attrition = 'Yes') / COUNT(*), 2) AS attrition_rate_pct,
+       RANK() OVER (ORDER BY SUM(e.attrition = 'Yes') / COUNT(*) DESC) AS attrition_rank
+FROM employees e
+JOIN departments d ON d.department_id = e.department_id
+GROUP BY d.department_name;
+
+7. Where does each employee sit in their job role's pay range?
+
+sql
+SELECT e.employee_id, jr.job_role_name, c.monthly_income,
+       ROUND(PERCENT_RANK() OVER (PARTITION BY jr.job_role_name ORDER BY c.monthly_income) * 100, 1) AS pay_percentile
+FROM employees e
+JOIN job_roles jr ON jr.job_role_id = e.job_role_id
+JOIN compensation c ON c.employee_id = e.employee_id
+ORDER BY jr.job_role_name, c.monthly_income;
+
+8. How does income trend as tenure increases within the same job role?
+
+sql
+SELECT jr.job_role_name, e.employee_id, e.years_at_company, c.monthly_income,
+       LAG(c.monthly_income) OVER (PARTITION BY jr.job_role_name ORDER BY e.years_at_company) AS income_of_next_junior_peer,
+       c.monthly_income - LAG(c.monthly_income) OVER (PARTITION BY jr.job_role_name ORDER BY e.years_at_company) AS income_delta
+FROM employees e
+JOIN compensation c ON c.employee_id = e.employee_id
+JOIN job_roles jr ON jr.job_role_id = e.job_role_id
+ORDER BY jr.job_role_name, e.years_at_company;
+
+9. Which departments have an above-average attrition rate?
+
+sql
+SELECT department_name, attrition_rate
+FROM (
+    SELECT d.department_name,
+           ROUND(100 * SUM(e.attrition='Yes') / COUNT(*), 2) AS attrition_rate
+    FROM employees e
+    JOIN departments d ON d.department_id = e.department_id
+    GROUP BY d.department_name
+) dept_summary
+WHERE attrition_rate > (
+    SELECT ROUND(100 * SUM(attrition='Yes') / COUNT(*), 2) FROM employees
+);
+
+10. Which employees earn more than the average pay for their department?
+
+sql
+SELECT e.employee_id, d.department_name, c.monthly_income
+FROM employees e
+JOIN departments d ON d.department_id = e.department_id
+JOIN compensation c ON c.employee_id = e.employee_id
+WHERE c.monthly_income > (
+    SELECT AVG(c2.monthly_income)
+    FROM employees e2
+    JOIN compensation c2 ON c2.employee_id = e2.employee_id
+    WHERE e2.department_id = e.department_id
+);
+
+---
+
+
 ## Tools & Technologies
 
 | Tool | Purpose |
