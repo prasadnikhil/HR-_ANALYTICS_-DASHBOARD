@@ -1,1 +1,110 @@
-A
+-- 1. What is the overall employee attrition rate?
+create view `Overall Attrition Rate` as
+select
+    sum(attrition = 'Yes') as employees_left,
+    count(*) as total_employees,
+    round(100 * sum(attrition = 'Yes') / count(*), 2) as attrition_rate_pct
+from employees;
+select * from `Overall Attrition Rate`;
+
+-- 2. Does working overtime increase the likelihood of attrition?
+create view `Overtime vs Attrition` as
+select over_time, count(*) as total_employees,
+       sum(attrition = 'Yes') as employees_left,
+       round(100 * sum(attrition = 'Yes') / count(*), 2) as attrition_rate_pct
+from employees
+group by over_time;
+select * from `Overtime vs Attrition`;
+
+-- 3. How many employees work in each department and job role?
+create view `Headcount by Department and Role` as
+select d.department_name, jr.job_role_name, count(*) as headcount
+from employees e
+join departments d on d.department_id = e.department_id
+join job_roles jr on jr.job_role_id = e.job_role_id
+group by d.department_name, jr.job_role_name
+order by d.department_name, headcount desc;
+select * from `Headcount by Department and Role`;
+
+-- 4. How does average pay compare across departments and job roles?
+create view `Average Pay by Department and Role` as
+select d.department_name, jr.job_role_name, count(*) as total_employees,
+       round(avg(c.monthly_income), 0) as avg_monthly_income
+from employees e
+join departments d on d.department_id = e.department_id
+join job_roles jr on jr.job_role_id = e.job_role_id
+join compensation c on c.employee_id = e.employee_id
+group by d.department_name, jr.job_role_name
+order by avg_monthly_income desc;
+select * from `Average Pay by Department and Role`;
+
+-- 5. Is there a gender pay gap at any job level?
+create view `Gender Pay Gap by Job Level` as
+select e.job_level, e.gender, count(*) as total_employees,
+       round(avg(c.monthly_income), 0) as avg_monthly_income
+from employees e
+join compensation c on c.employee_id = e.employee_id
+group by e.job_level, e.gender
+order by e.job_level, e.gender;
+select * from `Gender Pay Gap by Job Level`;
+
+-- 6. Which department has the highest attrition rate, ranked against the others?
+create view `Attrition Rank by Department` as
+select d.department_name, count(*) as headcount,
+       sum(e.attrition = 'Yes') as left_count,
+       round(100 * sum(e.attrition = 'Yes') / count(*), 2) as attrition_rate_pct,
+       rank() over (order by sum(e.attrition = 'Yes') / count(*) desc) as attrition_rank
+from employees e
+join departments d on d.department_id = e.department_id
+group by d.department_name;
+select * from `Attrition Rank by Department`;
+
+-- 7. Where does each employee sit in their job role's pay range?
+create view `Pay Percentile within Role` as
+select e.employee_id, jr.job_role_name, c.monthly_income,
+       round(percent_rank() over (partition by jr.job_role_name order by c.monthly_income) * 100, 1) as pay_percentile
+from employees e
+join job_roles jr on jr.job_role_id = e.job_role_id
+join compensation c on c.employee_id = e.employee_id
+order by jr.job_role_name, c.monthly_income;
+select * from `Pay Percentile within Role`;
+
+-- 8. How does income trend as tenure increases within the same job role?
+create view `Income Trend by Tenure within Role` as
+select jr.job_role_name, e.employee_id, e.years_at_company, c.monthly_income,
+       lag(c.monthly_income) over (partition by jr.job_role_name order by e.years_at_company) as income_of_next_junior_peer,
+       c.monthly_income - lag(c.monthly_income) over (partition by jr.job_role_name order by e.years_at_company) as income_delta
+from employees e
+join compensation c on c.employee_id = e.employee_id
+join job_roles jr on jr.job_role_id = e.job_role_id
+order by jr.job_role_name, e.years_at_company;
+select * from `Income Trend by Tenure within Role`;
+
+-- 9. Which departments have an above-average attrition rate?
+create view `Departments Above Average Attrition` as
+select department_name, attrition_rate
+from (
+    select d.department_name,
+           round(100 * sum(e.attrition='Yes') / count(*), 2) as attrition_rate
+    from employees e
+    join departments d on d.department_id = e.department_id
+    group by d.department_name
+) dept_summary
+where attrition_rate > (
+    select round(100 * sum(attrition='Yes') / count(*), 2) from employees
+);
+select * from `Departments Above Average Attrition`;
+
+-- 10. Which employees earn more than the average pay for their department?
+create view `Employees Above Department Average Pay` as
+select e.employee_id, d.department_name, c.monthly_income
+from employees e
+join departments d on d.department_id = e.department_id
+join compensation c on c.employee_id = e.employee_id
+where c.monthly_income > (
+    select avg(c2.monthly_income)
+    from employees e2
+    join compensation c2 on c2.employee_id = e2.employee_id
+    where e2.department_id = e.department_id
+);
+select * from `Employees Above Department Average Pay`;
